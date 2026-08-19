@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全域蒸馏决策师 — 隆森AI</title>
+<style>
+/* ============ Design Tokens（antd 中后台 × shadcn 现代感） ============ */
+:root{
+  --bg:#f5f7fa;            /* 工作台浅灰蓝底 */
+  --card:#ffffff;
+  --line:#e5e7eb;
+  --line-strong:#d1d5db;
+  --primary:#2563eb;       /* 主色（产品蓝） */
+  --primary-strong:#1d4ed8;
+  --primary-bg:#eff6ff;
+  --text:#111827;
+  --text2:#4b5563;
+  --dim:#9ca3af;
+  --ok:#10b981;  --ok-bg:#ecfdf5;
+  --warn:#f59e0b; --warn-bg:#fffbeb;
+  --err:#ef4444; --err-bg:#fef2f2;
+  --radius:12px;
+  --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+  --shadow-lg:0 8px 24px rgba(16,24,40,.08);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6;padding-bottom:72px;-webkit-font-smoothing:antialiased}
+
+/* ============ 顶栏（工作台式） ============ */
+.topbar{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:1080px;margin:0 auto;padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:var(--text)}
+.brand .logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#2563eb,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;box-shadow:0 2px 6px rgba(37,99,235,.3)}
+.brand .sep{color:var(--line-strong);font-weight:400}
+.brand .prod{color:var(--primary)}
+.demo-tag{font-size:11px;color:var(--primary);background:var(--primary-bg);border:1px solid rgba(37,99,235,.25);border-radius:999px;padding:3px 10px;letter-spacing:.08em}
+
+/* ============ 主区 ============ */
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.page-head{margin:28px 0 4px}
+.page-head h1{font-size:24px;font-weight:700;letter-spacing:-.01em}
+.page-head p{font-size:13.5px;color:var(--text2);margin-top:4px;max-width:680px}
+
+/* ============ 服务卡（并列 Tab） ============ */
+.svc{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:20px 0 26px}
+.svc-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;cursor:pointer;transition:.22s;position:relative;box-shadow:var(--shadow);display:flex;gap:13px;align-items:flex-start}
+.svc-card:hover{border-color:var(--primary);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+.svc-card.on{border-color:var(--primary);background:var(--primary-bg);box-shadow:0 0 0 1px var(--primary) inset}
+.svc-card .ic{width:40px;height:40px;border-radius:10px;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.svc-card.on .ic{background:#fff;box-shadow:var(--shadow)}
+.svc-card .t b{font-size:14px;display:block;margin-bottom:3px}
+.svc-card .t span{font-size:12px;color:var(--text2);line-height:1.45;display:block}
+.svc-card .no{position:absolute;top:10px;right:12px;font-size:9.5px;color:var(--dim);letter-spacing:.1em}
+.svc-card.on .no{color:var(--primary)}
+
+/* ============ 视图 ============ */
+.view{display:none}
+.view.show{display:block;animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.sec-title{font-size:16px;font-weight:700;margin:26px 0 12px;display:flex;align-items:center;gap:8px}
+.sec-title::before{content:"";width:3px;height:15px;background:var(--primary);border-radius:2px}
+
+/* ============ 输入面板 ============ */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+.panel label{font-size:13px;font-weight:600;display:block;margin-bottom:10px}
+.input-row{display:flex;gap:10px}
+.input-row input{flex:1;height:46px;padding:0 16px;border:1px solid var(--line-strong);border-radius:10px;font-size:14.5px;color:var(--text);outline:none;transition:.18s;background:#fff;font-family:var(--font)}
+.input-row input::placeholder{color:var(--dim)}
+.input-row input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+.btn{height:46px;padding:0 26px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:14.5px;font-weight:600;cursor:pointer;transition:.18s;box-shadow:0 2px 8px rgba(37,99,235,.28);white-space:nowrap;font-family:var(--font)}
+.btn:hover{background:var(--primary-strong)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.btn.sm{height:34px;padding:0 16px;font-size:13px}
+/* 快捷词 */
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.chip{font-size:12px;color:var(--text2);border:1px solid var(--line-strong);border-radius:999px;padding:4px 12px;cursor:pointer;background:#fff;transition:.16s}
+.chip:hover{color:var(--primary);border-color:var(--primary)}
+.chip.on{color:var(--primary);background:var(--primary-bg);border-color:var(--primary);font-weight:600}
+/* 档位选择（卡片+解释） */
+.depth-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:16px}
+.depth-opt{border:1px solid var(--line-strong);border-radius:10px;padding:12px 14px;cursor:pointer;background:#fff;transition:.18s;position:relative}
+.depth-opt:hover{border-color:var(--primary)}
+.depth-opt.on{border-color:var(--primary);background:var(--primary-bg);box-shadow:0 0 0 1px var(--primary) inset}
+.d-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.d-head b{font-size:14px}
+.d-tag{font-size:10px;color:var(--primary);background:#fff;border:1px solid rgba(37,99,235,.3);border-radius:999px;padding:1px 8px;white-space:nowrap}
+.d-params{font-size:11px;color:var(--text2);line-height:1.5}
+.depth-detail{margin-top:12px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:12.5px;color:var(--text2);line-height:1.75}
+.depth-detail b{color:var(--text)}
+.depth-detail .k{color:var(--primary);font-weight:600}
+/* 模式识别提示 */
+.mode-hint{margin-top:14px;font-size:12.5px;color:var(--text2);background:var(--bg);border:1px dashed var(--line-strong);border-radius:10px;padding:10px 14px;min-height:40px}
+.mode-hint b{color:var(--primary)}
+
+/* ============ 蒸馏管道（签名元素） ============ */
+.pipe{margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 16px;box-shadow:var(--shadow)}
+.pipe-label{font-size:12px;color:var(--dim);letter-spacing:.1em;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.pipe-label::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--primary);display:inline-block}
+.pipe-track{display:flex;align-items:flex-start;overflow-x:auto;padding-bottom:6px}
+.pstep{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:74px}
+.pdot{width:34px;height:34px;border-radius:50%;background:#f3f4f6;border:2px solid var(--line-strong);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;color:var(--dim);transition:.3s;position:relative}
+.pname{font-size:11px;color:var(--dim);margin-top:7px;text-align:center;line-height:1.3}
+.pstep.run .pdot{background:var(--primary);border-color:var(--primary);color:#fff;animation:pulse 1.6s ease infinite}
+.pstep.run .pname{color:var(--primary);font-weight:600}
+.pstep.done .pdot{background:var(--ok);border-color:var(--ok);color:#fff}
+.pstep.done .pname{color:var(--ok)}
+.pstep.done .pdot::after{content:"✓";position:absolute;font-size:10px;top:-4px;right:-4px;background:#fff;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;color:var(--ok);border:1px solid var(--ok);font-weight:700}
+.pstep.gate .pdot{background:var(--warn-bg);border-color:var(--warn);color:#d97706}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.35)}50%{box-shadow:0 0 0 7px rgba(37,99,235,0)}}
+.plink{width:26px;height:2px;background:var(--line-strong);margin-top:16px;flex-shrink:0;transition:.3s}
+.plink.hot{background:var(--primary)}
+
+/* ============ 结果区 ============ */
+.out{margin-top:18px;display:none}
+.out.show{display:block;animation:fade .45s ease}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+.card h4{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;color:var(--text)}
+.card h4 .dot{width:8px;height:8px;border-radius:2px;background:var(--primary);display:inline-block}
+.card ul{list-style:none}
+.card li{font-size:13px;padding:6px 0;border-bottom:1px dashed var(--line);display:flex;gap:8px;align-items:baseline}
+.card li:last-child{border-bottom:none}
+.card li b{font-weight:600;white-space:nowrap}
+.card li span{color:var(--text2);font-size:12px}
+.tree{background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:16px;font-family:var(--mono);font-size:12.5px;line-height:1.8;overflow-x:auto;color:var(--text)}
+.tree .d{color:var(--primary)}
+.tree .f{color:var(--ok)}
+.tree .cm{color:var(--dim)}
+/* 状态标签（tools-ui 生命周期语言） */
+.st{display:inline-block;font-size:11px;font-weight:600;border-radius:6px;padding:2px 8px}
+.st.run{background:var(--primary-bg);color:var(--primary)}
+.st.ok{background:var(--ok-bg);color:var(--ok)}
+.st.wait{background:var(--warn-bg);color:#d97706}
+/* 诊断/URL 卡 */
+.diag{color:var(--text2)}
+/* 门禁（approval） */
+.gate{border:1px solid #fcd34d;background:var(--warn-bg);border-radius:var(--radius);padding:20px;margin-top:14px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.gate .g-ic{width:42px;height:42px;border-radius:11px;background:#fff;border:1px solid #fde68a;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.gate .g-body{flex:1;min-width:220px}
+.gate h4{font-size:14px;color:#92400e;margin-bottom:6px}
+.gate p{font-size:13px;color:#78350f;opacity:.85;margin-bottom:10px}
+/* 交付包（success） */
+.deliver{border:1px solid #a7f3d0;background:var(--ok-bg);border-radius:var(--radius);padding:20px;margin-top:14px;display:none}
+.deliver.show{display:block;animation:fade .4s ease}
+.deliver h4{font-size:14px;color:#065f46;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.deliver .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:4px}
+.deliver .d-card{background:#fff;border:1px solid #d1fae5;border-radius:10px;padding:14px}
+.deliver .d-card h5{font-size:12.5px;color:#047857;margin-bottom:8px}
+.deliver .d-card li{font-size:12.5px;color:var(--text2);padding:4px 0;border-bottom:1px dashed #d1fae5;list-style:none}
+.deliver .d-card li:last-child{border-bottom:none}
+/* 交付物信息内容框架 */
+.dl-framework{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:10px}
+.dl-framework .dlf{background:#fff;border:1px solid #d1fae5;border-radius:10px;padding:12px}
+.dl-framework .dlf b{font-size:13px;color:#047857;display:block;margin-bottom:5px}
+.dl-framework .dlf span{font-size:11.5px;color:var(--text2);line-height:1.6;display:block}
+
+/* ============ 案例库 / 知识区 ============ */
+.case-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.kb{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.kb summary{cursor:pointer;padding:15px 18px;font-size:14px;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center;transition:.15s}
+.kb summary:hover{background:var(--bg)}
+.kb summary::after{content:"+";color:var(--primary);font-size:17px;font-weight:400}
+.kb[open] summary::after{content:"−"}
+.kb .kb-body{padding:0 18px 18px;font-size:12.5px;color:var(--text2)}
+.kb .kb-body p{margin:5px 0}
+.kb table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+.kb th{background:var(--bg);color:var(--text);text-align:left;padding:8px;border-bottom:1px solid var(--line);font-weight:600}
+.kb td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+.kb td b{color:var(--text)}
+.kb .ok{color:var(--ok)} .kb .warn{color:#d97706} .kb .err{color:var(--err)}
+.tag{display:inline-block;background:var(--primary-bg);color:var(--primary);border-radius:6px;padding:1px 8px;font-size:11px;margin:2px 4px 2px 0}
+.tag.y{background:var(--warn-bg);color:#d97706}
+
+/* ============ 页脚 ============ */
+.foot{margin-top:56px;text-align:center;color:var(--dim);font-size:12px;padding:0 20px}
+.foot b{color:var(--primary)}
+/* ---------- v4 增强（设计合理性） ---------- */
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.st{display:inline-block;font-size:11px;font-weight:600;border-radius:6px;padding:2px 8px;margin-left:auto}
+.pipe-empty{font-size:12.5px;color:var(--dim);text-align:center;padding:28px 16px 24px;border:1px dashed var(--line-strong);border-radius:10px;line-height:1.8}
+.pipe-status{margin-top:12px;font-size:12.5px;color:var(--text2);min-height:20px}
+.pipe-status b{color:var(--primary)}
+.chip-group{font-size:11px;color:var(--dim);letter-spacing:.1em;display:flex;align-items:center;margin-right:2px;user-select:none}
+.badge-count{display:inline-block;font-size:11px;font-weight:600;color:var(--primary);background:var(--primary-bg);border-radius:999px;padding:2px 9px;margin-left:auto}
+.nums{font-variant-numeric:tabular-nums}
+/* ---------- Key 弹窗 ---------- */
+.btn.ghost{background:#fff;border:1px solid var(--line-strong);color:var(--text2);box-shadow:none}
+.btn.ghost:hover{border-color:var(--primary);color:var(--primary);background:#fff}
+.mask{position:fixed;inset:0;background:rgba(17,24,39,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.mask.show{display:flex}
+.modal{background:#fff;border-radius:14px;padding:24px;width:100%;max-width:360px;box-shadow:0 20px 50px rgba(0,0,0,.25);animation:fade .25s ease}
+.modal h4{font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.modal .m-sub{font-size:12px;color:var(--text2);margin-bottom:14px}
+.modal input{width:100%;height:42px;border:1px solid var(--line-strong);border-radius:8px;padding:0 12px;font-size:13.5px;outline:none;font-family:var(--mono)}
+.modal input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+.m-msg{font-size:12px;margin-top:10px;min-height:18px;color:var(--text2)}
+.m-msg.ok{color:var(--ok)}
+.m-msg.err{color:var(--err)}
+.m-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.m-actions .btn{margin-top:0}
+.dl-card{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.dl-card .btn{margin-top:0}
+/* ---------- 真实案例（正式数据） ---------- */
+.real-case{border:1px solid #a7f3d0;background:linear-gradient(180deg,#ecfdf5,#fff);border-radius:var(--radius);padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
+.rc-head{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;margin-bottom:4px}
+.rc-sub{font-size:12px;color:var(--text2);margin-bottom:14px}
+.rc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.rc-cell{background:#fff;border:1px solid #d1fae5;border-radius:10px;padding:10px 12px}
+.rc-cell b{display:block;font-size:15px;color:#047857;margin-bottom:2px}
+.rc-cell span{font-size:11.5px;color:var(--text2);line-height:1.4;display:block}
+.rc-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.rc-tag{background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:999px;padding:2px 10px;font-size:11.5px}
+.rc-list{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.rc-item{background:#fff;border:1px solid #d1fae5;border-radius:10px;padding:10px 12px;font-size:12px}
+.rc-item b{color:#047857}
+.rc-item span{color:var(--text2);display:block;margin-top:2px}
+@media(prefers-reduced-motion:reduce){.pstep.run .pdot{animation:none}}
+
+@media(max-width:640px){
+  .page-head h1{font-size:20px}
+  .svc{grid-template-columns:1fr 1fr}
+  .svc-card{flex-direction:column;gap:8px}
+  .input-row{flex-direction:column}
+  .btn{width:100%}
+  .seg{width:100%;display:grid;grid-template-columns:1fr 1fr 1fr}
+  .seg .opt{text-align:center;border-right:none;border-bottom:1px solid var(--line)}
+  .pstep{width:62px}
+  .plink{width:16px}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="in">
+    <div class="brand"><span class="logo">◆</span>隆森AI <span class="sep">/</span> <span class="prod">全域蒸馏决策师</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="page-head">
+    <h1>输入一个行业 / 品牌 / 网站 / 话题 → 输出一套全域认知系统</h1>
+    <p>全网信息蒸馏 → 商业诊断 → 方案转化，全程带来源验证与确认门。</p>
+  </div>
+
+  <!-- ============ 并列服务卡 ============ -->
+  <div class="svc">
+    <div class="svc-card on" onclick="switchView('demo')"><span class="no">01</span><div class="ic">🧪</div><div class="t"><b>交互演示</b><span>输入任意目标，全流程蒸馏→诊断→转化→交付</span></div></div>
+    <div class="svc-card" onclick="switchView('case')"><span class="no">02</span><div class="ic">📚</div><div class="t"><b>行业案例库</b><span>6 大行业骨架：宠物食品 / AI / 跨境电商 / SaaS / 创作者 / 消费品</span></div></div>
+    <div class="svc-card" onclick="switchView('method')"><span class="no">03</span><div class="ic">🧭</div><div class="t"><b>能力速览</b><span>4 模式×3 档 · 7 步流水线 · URL 三关 · 12 维竞品 · 质量铁律</span></div></div>
+    <div class="svc-card" onclick="switchView('sample')"><span class="no">04</span><div class="ic">📊</div><div class="t"><b>真实样例</b><span>Anthropic 全域蒸馏报告 15 区块真实产出</span></div></div>
+  </div>
+
+  <!-- ============ 视图：交互演示 ============ -->
+  <div class="view show" id="view-demo">
+    <div class="panel">
+      <label for="q">要蒸馏什么？</label>
+      <div class="input-row">
+        <input id="q" placeholder="例如：宠物食品行业 / Anthropic / example.com / RAG 技术" value="宠物食品行业">
+        <button class="btn" id="run" onclick="start()">开始蒸馏</button>
+      </div>
+      <div class="chips"><span class="chip-group">行业</span>
+        <button class="chip" onclick="pick('宠物食品行业')">宠物食品行业</button>
+        <button class="chip" onclick="pick('AI 编程助手赛道')">AI 编程助手赛道</button>
+        <button class="chip" onclick="pick('跨境电商独立站')">跨境电商独立站</button>
+        <button class="chip" onclick="pick('SaaS 客户成功软件')">SaaS 客户成功软件</button>
+      </div>
+      <div class="chips"><span class="chip-group">品牌</span>
+        <button class="chip" onclick="pick('Anthropic')">Anthropic</button>
+        <button class="chip" onclick="pick('小红书')">小红书</button>
+        <button class="chip" onclick="pick('猫粮品牌')">猫粮品牌</button>
+      </div>
+      <div class="chips"><span class="chip-group">话题</span>
+        <button class="chip" onclick="pick('MCP 协议')">MCP 协议</button>
+      </div>
+      <div class="depth-picker">
+        <div class="depth-opt" onclick="setDepth(0)" id="d0"><div class="d-head"><b>Quick</b><span class="d-tag">快速摸底</span></div><div class="d-params">Top 10-15 · 核心品牌/痛点/机会方向</div></div>
+        <div class="depth-opt on" onclick="setDepth(1)" id="d1"><div class="d-head"><b>Standard</b><span class="d-tag">默认推荐</span></div><div class="d-params">Top 20-30 · 完整认知 + 总报告</div></div>
+        <div class="depth-opt" onclick="setDepth(2)" id="d2"><div class="d-head"><b>Deep</b><span class="d-tag">深度研究</span></div><div class="d-params">Top 50-100 · 全量 + 情报系统</div></div>
+      </div>
+      <div class="depth-detail" id="depthDetail"></div>
+      <div class="mode-hint" id="modeHint">输入后自动识别：模式 · 行业骨架 · 执行档位</div>
+    </div>
+
+    <!-- 蒸馏管道（签名元素） -->
+    <div class="pipe">
+      <div class="pipe-label">蒸馏管道 · DISTILLATION PIPELINE</div>
+      <div class="pipe-empty" id="pipeEmpty">输入目标并点击「开始蒸馏」，蒸馏管道将在此运行 —— 步骤流过沉淀为绿 ✓，⛔ 为方案批准门。</div>
+      <div class="pipe-track" id="pipeSteps" style="display:none"></div>
+      <div class="pipe-status nums" id="pipeStatus"></div>
+    </div>
+
+    <!-- 结果区 -->
+    <div class="out" id="outBox">
+      <div class="real-case" id="realData" style="display:none"></div>
+      <div class="grid3">
+        <div class="card"><h4><span class="dot"></span>模式判定<span class="st ok">已识别</span></h4><ul id="modeList"></ul></div>
+        <div class="card"><h4><span class="dot"></span>行业骨架命中<span class="st ok">已命中</span></h4><ul id="skelList"></ul></div>
+        <div class="card"><h4><span class="dot"></span>执行档位<span class="st ok">已设定</span></h4><ul id="depthList"></ul></div>
+      </div>
+      <div class="card" style="margin-top:12px"><h4><span class="dot"></span>交付物 · 全域认知系统<span class="badge-count nums" id="fileCount">6 大模块</span>
+      <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" onclick="openDeliverDetail()">📄 详细信息</button>
+        <button class="btn sm" onclick="alert('演示版：真实交付请联系获取')">🔑 下载交付物（Key 验证）</button>
+      </span></h4>
+      <div class="dl-framework" id="dlFramework"></div>
+      <details style="margin-top:10px"><summary style="font-size:12px;color:var(--text2);cursor:pointer">🗂 查看文件目录结构（技术细节）</summary><div class="tree" id="tree"></div></details></div>
+      <div class="grid3">
+        <div class="card"><h4><span class="dot"></span>诊断 DIAGNOSIS</h4><ul id="diagList"></ul></div>
+        <div class="card"><h4><span class="dot"></span>URL 三关验证</h4><ul id="urlList"></ul></div>
+        <div class="card"><h4><span class="dot"></span>质量铁律</h4><ul>
+          <li><b>数据真实</b><span>宁可 20 条填齐，不列 100 空壳</span></li>
+          <li><b>URL 真实</b><span>不验证不引用，宁缺毋滥</span></li>
+          <li><b>证据优先</b><span>结论引用数据行号</span></li>
+        </ul></div>
+      </div>
+
+      <!-- HARD-GATE 审批门（approval 状态） -->
+      <div class="gate" id="gate">
+        <div class="g-ic">⛔</div>
+        <div class="g-body">
+          <h4>HARD-GATE · 方案批准前禁止实施<span class="st wait" id="gateSt">待批准</span></h4>
+          <p>蒸馏与诊断已完成，行动方案已生成。需你批准后才解锁设计文档与交付包。</p>
+          <button class="btn sm" id="approve" onclick="approve()">✅ 批准实施</button>
+        </div>
+      </div>
+
+      <!-- 交付包（success 状态） -->
+      <div class="deliver" id="planBox">
+        <h4>✅ 已批准 · 完整交付包</h4>
+        <div class="cards">
+          <div class="d-card"><h5>🗺️ PLAN.md 行动方案</h5><ul id="planList"></ul></div>
+          <div class="d-card"><h5>📐 设计文档 design.md</h5><ul id="specList"></ul></div>
+          <div class="d-card dl-card"><h5>💳 交付包下载（Key 验证）</h5>
+          <p style="font-size:12px;color:var(--text2)">完整交付包（报告 HTML + 文件清单）需 Key 验证后下载。Key 按档位发放，一客一 Key。</p>
+          <button class="btn sm" onclick="openKeyModal()">⬇️ 下载完整交付包（联系获取）</button>
+          </div>
+          <div class="d-card"><h5>📋 复盘机制</h5><ul>
+            <li><b>_REFLECTION.md</b> 每步复盘汇总</li>
+            <li><b>增量迭代</b> 跑完可追问补深</li>
+            <li><b>数据截止</b> 抓不到标「YYYY-Qq」</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 视图：行业案例库 ============ -->
+  <div class="view" id="view-case">
+    <div class="sec-title">行业案例库</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">6 大行业骨架案例：输入自动匹配，按行业定制字段与数据源。点击展开完整参数。</p>
+    <div class="real-case" id="realCase">
+      <div class="rc-head">🐱 宠物食品 · 真实蒸馏案例 <span class="st ok">正式数据</span><a class="btn sm" href="#" style="margin-left:auto">📄 详细信息 → PDF 交付案例库</a></div>
+      <div class="rc-sub">来自全域蒸馏真实执行（2026-08-17 · 63 文件交付物）· 数据截至 2026-Q3，全带来源标注</div>
+      <div class="rc-grid" id="rcGrid"></div>
+      <div class="rc-tags" id="rcTags"></div>
+      <div class="rc-list" id="rcList"></div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn sm" onclick="alert('演示版：真实交付请联系获取')">⬇️ 下载宠物食品数据包（联系获取）</button>
+        <span style="font-size:11.5px;color:var(--dim)">13 品牌 / 4 竞品 / 17 痛点 / 13 机会 · zip 打包 · Key 按档位发放</span>
+      </div>
+    </div>
+    <div class="real-case">
+      <div class="rc-head" id="yimeiCase">🏠 衣美金属制品店 · 晾衣架行业案例 <span class="st ok">交付版</span><a class="btn sm" href="#" style="margin-left:auto">📄 详细信息 → PDF 交付案例库</a></div>
+      <div class="rc-sub">输入「晾衣架行业 / 衣美金属制品店」→ 输出全域认知系统交付版 · 全域运营作战地图（2026-08-19）</div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn sm" onclick="alert('演示版：真实交付请联系获取')">⬇️ 下载衣美作战地图（联系获取）</button>
+        <span style="font-size:11.5px;color:var(--dim)">16 章作战体系 · 21 张图表 · 三视角分层（老板/运营/主播）· 质检全绿 · 零敏感词</span>
+      </div>
+    </div>
+    <div class="case-grid">
+      <details class="kb"><summary>🐱 宠物食品 / DTC 电商</summary><div class="kb-body">
+        <p><b>匹配骨架</b>：dtc-ecommerce · <b>判定词</b>：宠物 / pet / 猫 / 狗 / 独立站 / 跨境电商</p>
+        <p><b>核心产出</b>：Competitors 为绝对核心</p>
+        <p><b>特有字段</b>：AOV / LTV / CAC / 复购率 / checkout_platform / fulfillment / email_list_size</p>
+        <p><b>竞品加深</b>：popups / reviews / upsell / subscription / affiliate / referral</p>
+        <p><b>数据源</b>：SimilarWeb / BuiltWith / Owler / Meta Ad Library / Retail Dive</p>
+        <p class="ok">实测：蒸馏「宠物食品行业」→ 命中 dtc-ecommerce，无需落回兜底</p>
+      </div></details>
+      <details class="kb"><summary>🤖 AI 编程助手 / LLM</summary><div class="kb-body">
+        <p><b>匹配骨架</b>：ai-tools · <b>判定词</b>：AI / LLM / 大模型 / Agent / 智能体</p>
+        <p><b>核心产出</b>：Knowledge-Cards 最深（4-5 级）</p>
+        <p><b>特有字段</b>：context_window / rate_limits / api_quality / open_source / training_data_origin</p>
+        <p><b>痛点维度</b>：幻觉 / 成本 / 延迟 / 隐私合规 / 模型过时</p>
+        <p><b>数据源</b>：Artificial Analysis / HuggingFace / arXiv / HN / ProductHunt / GitHub</p>
+        <p class="ok">实战：Anthropic 全域蒸馏报告（brand 模式）即此场景真实产出</p>
+      </div></details>
+      <details class="kb"><summary>💼 SaaS 客户成功软件</summary><div class="kb-body">
+        <p><b>匹配骨架</b>：saas-b2b · <b>判定词</b>：SaaS / 软件 / B2B / 企业服务 / CRM</p>
+        <p><b>核心产出</b>：定价页分析为核心</p>
+        <p><b>特有字段</b>：ARR / YoY / 融资阶段 / pricing_model / ICP / deployment</p>
+        <p><b>痛点维度</b>：采购链 / 集成 / 安全合规 / ROI 证明 / 采用阻力</p>
+        <p><b>数据源</b>：G2 / Capterra / Gartner / Crunchbase / ProductHunt / LinkedIn</p>
+      </div></details>
+      <details class="kb"><summary>🛒 跨境电商独立站</summary><div class="kb-body">
+        <p><b>匹配骨架</b>：dtc-ecommerce · <b>判定词</b>：独立站 / 跨境电商 / DTC / 电商</p>
+        <p><b>核心产出</b>：Competitors 为绝对核心（成交路径拆解）</p>
+        <p><b>特有字段</b>：AOV / LTV / CAC / 复购率 / checkout_platform / fulfillment / email_list_size</p>
+        <p><b>转化路径</b>：Email / Loyalty / 订阅 / 凑单 / 弹窗 / upsell / referral</p>
+        <p><b>工具栈信号</b>：Klaviyo + Yotpo + Recharge 组合 = 行业标准答案；谁没用 = 差异化线索</p>
+      </div></details>
+      <details class="kb"><summary>🎬 创作者经济 / 自媒体</summary><div class="kb-body">
+        <p><b>匹配骨架</b>：creator-economy · <b>判定词</b>：创作者 / 博主 / 自媒体 / 网红 / MCN / 达人</p>
+        <p><b>核心产出</b>：Content 为绝对核心（50-100 账号采样）</p>
+        <p><b>特有字段</b>：followers_total / engagement_rate / monetization_streams / 估算月收入 / mcn_signed</p>
+        <p><b>内容分析</b>：viral_coefficient / save_rate / share_rate / comment_sentiment / content_lifecycle</p>
+        <p><b>爆款规律</b>：沉默赢家 / 死掉的爆款 / 跨平台迁移</p>
+      </div></details>
+      <details class="kb"><summary>🧴 消费品（食品/美妆/服饰）</summary><div class="kb-body">
+        <p><b>匹配骨架</b>：consumer-goods · <b>判定词</b>：消费品 / 食品 / 美妆 / 服饰 / 日用 / 猫粮</p>
+        <p><b>品牌三分法</b>：DTC / 传统 / 新锐</p>
+        <p><b>特有字段</b>：ingredient_sourcing / certification / clean_label_status / price_per_unit / sku_count</p>
+        <p><b>痛点四维</b>：安全 / 功效 / 价格 / 信任</p>
+        <p><b>数据源</b>：Euromonitor / 尼尔森 / Amazon / 1688 / 小红书 / 天猫榜单 / FDA</p>
+      </div></details>
+    </div>
+  </div>
+
+  <!-- ============ 视图：能力速览 ============ -->
+  <div class="view" id="view-method">
+    <div class="sec-title">能力速览</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">全域蒸馏引擎 + 商业诊断引擎 + 方案转化引擎 三合一。</p>
+
+    <details class="kb" open><summary>① 4 模式 × 3 档深度</summary><div class="kb-body">
+      <table>
+        <tr><th>模式</th><th>判定</th><th>执行范围</th><th>核心产出</th></tr>
+        <tr><td><b>industry</b></td><td>行业/市场/赛道</td><td>全跑 Step1-5</td><td>全球中英双搜 + 海外对标</td></tr>
+        <tr><td><b>brand</b></td><td>公司/产品名 1-4 词</td><td>Brands/Content/Competitors 子集</td><td>主品牌卡超详实</td></tr>
+        <tr><td><b>website</b></td><td>含 http / 裸域名</td><td>仅 Competitors</td><td>SEO 全量 + 收入推断</td></tr>
+        <tr><td><b>topic</b></td><td>窄概念/技术词</td><td>精简</td><td>知识卡片 + 知识地图；模糊升格 industry</td></tr>
+      </table>
+      <p style="margin-top:10px">档位：<span class="tag">Quick</span> Top 10-15 · <span class="tag">Standard</span> Top 20-30 + HTML（默认）· <span class="tag">Deep</span> Top 50-100 + 情报系统</p>
+    </div></details>
+
+    <details class="kb"><summary>② 7 步流水线（v2.1）</summary><div class="kb-body">
+      <p><span class="tag">Step 0</span> 初始化 → <span class="tag">Step 1</span> 建骨架 → <span class="tag">Step 2</span> 填数据库 → <span class="tag">Step 2.5</span> ⭐URL 三关验证 → <span class="tag">Step 3</span> 竞品拆解 12 维 → <span class="tag">Step 5</span> 内容生态 50-100 账号 → <span class="tag">Step 6</span> 知识地图 + 4 类机会 → <span class="tag">Final</span> report.html（全功能版）。并发规则：Step 2 内可并行；1→2→2.5→3 必须串行。</p>
+    </div></details>
+
+    <details class="kb"><summary>③ URL 三关验证（防假核心）</summary><div class="kb-body">
+      <p><b class="ok">Phase 1 存活</b>：抓前 500 字符 → 200？title 含关键词？非停放页？</p>
+      <p><b class="ok">Phase 2 多源交叉</b>：≥2 独立来源指向同一 URL，冲突取权威</p>
+      <p><b class="ok">Phase 3 内容抽样</b>：logo / 导航 / copyright / 产品线一致</p>
+      <p>Fallback：换关键词 → LinkedIn → Wiki/Crunchbase → Wayback → 标记 unverified 不入 Step 3</p>
+    </div></details>
+
+    <details class="kb"><summary>④ 竞品拆解 12 维 + 内容生态</summary><div class="kb-body">
+      <p>导航结构（利润角色）/ Collection（成交路径）/ Tag（用户语言）/ SEO / Blog / Footer / Landing Page / 转化路径 / 工具栈（7 类）/ 社媒矩阵 / 定价页 / 移动端。</p>
+      <p style="margin-top:8px">内容生态：<b>不要研究一个账号，要研究 100 个</b>——一次爆=运气，十次爆=规律。五分类法（曝光/涨粉/收藏/转化/人设）+ 沉默赢家 / 跨平台迁移。</p>
+    </div></details>
+
+    <details class="kb"><summary>⑤ 行业骨架库（6 个）+ 模板库（8 个）</summary><div class="kb-body">
+      <table>
+        <tr><th>骨架</th><th>适用</th><th>特有字段示例</th></tr>
+        <tr><td><b>_generic</b></td><td>兜底</td><td>标准全目录</td></tr>
+        <tr><td><b>consumer-goods</b></td><td>消费品</td><td>ingredient_sourcing / sku_count / price_per_unit</td></tr>
+        <tr><td><b>dtc-ecommerce</b></td><td>DTC 独立站</td><td>AOV / LTV / CAC / 复购率 / email_list_size</td></tr>
+        <tr><td><b>saas-b2b</b></td><td>企业软件</td><td>ARR / YoY / pricing_model / ICP / PLG 信号</td></tr>
+        <tr><td><b>ai-tools</b></td><td>AI/LLM/Agent</td><td>context_window / rate_limits / open_source</td></tr>
+        <tr><td><b>creator-economy</b></td><td>创作者经济</td><td>followers_total / engagement_rate / mcn_signed</td></tr>
+      </table>
+      <p style="margin-top:10px">模板库 8 个：brand.md(111行) / competitor.md(197行) / content-account.md(86行) / template-brand.md(76行) / template-competitor.md(159行) / template-knowledge-card.md(78行) / template-opportunity.md(72行) / template-product.md(81行)</p>
+    </div></details>
+
+    <details class="kb"><summary>⑥ 质量铁律</summary><div class="kb-body">
+      <p><b class="err">数据真实</b>：宁可 20 条填齐，不列 100 空壳；抓不到标「数据截至 YYYY-Qq」，绝不编造</p>
+      <p><b class="err">URL 真实</b>：宁可验证 15 个正确官网，不拿 50 个错误 URL 空转</p>
+      <p><b class="err">证据优先</b>：诊断结论必须引用数据行号</p>
+      <p><b class="err">确认门</b>：蒸馏每步用户确认门 + 转化 HARD-GATE 批准后才实施</p>
+    </div></details>
+  </div>
+
+  <!-- ============ 视图：真实样例 ============ -->
+  <div class="view" id="view-sample">
+    <div class="sec-title">真实产出样例 · Anthropic 全域蒸馏报告</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">brand 模式 · Standard 档 · 45 个文件（44 md + 1 html）——report.html 全功能规范的真实应用，15 大区块。</p>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr style="background:var(--bg)"><th style="text-align:left;padding:10px 14px;width:130px;border-bottom:1px solid var(--line)">区块</th><th style="text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)">内容</th></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>① 执行摘要</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">KPI 卡（6 竞品 / 100% URL 验证率 / 18 机会 / 12 知识卡）+ 3 条核心发现</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>② 品牌库</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">6 家 × 17 字段（Anthropic / OpenAI / Gemini / Grok / DeepSeek / Perplexity）</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>③ 产品矩阵</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">Agentic 分类覆盖度（Chatbot/API/Enterprise/Agentic编程/Search/Memory/MCP/Office 9 类）</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>④ 关键词</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">65 词 × 5 意图 tab（Commercial 15 / Info 14 / Comparison 13 / Review 12 / Buying 11）</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>⑤ 痛点 TOP10</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">Rate Limit / 幻觉 / 价格贵 / 多模态弱（强度+涉及方+对应机会）</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>⑥ 竞争格局</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">URL 验证 7/7 通过 + Chart.js 散点图（Agentic × 企业合规）</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>⑦ Claude 12 维深拆</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">导航利润角色 / 15+ 产品子项 / 定价阶梯 / 工具栈 / 转化路径</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>⑧ 横评矩阵</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">6 家 × 12 维 + 行业共识 + 差异化机会</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>⑨ 内容生态</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">52 账号采样 + Top10 + 2 个可借鉴档案</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>⑩ 爆款规律</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">标题公式 Top5 + 沉默赢家 + 跨平台迁移机会</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>⑪ 内容源</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">创作者（YouTube/X/播客/Newsletter）+ 社区（r/ClaudeAI/HN/Discord/V2EX）</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>⑫ 机会清单</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">18 条 4 类（蓝海3 / 高增速4 / 内容空白4 / Aha 7，含置信度+时间窗口）</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>⑬ 知识地图</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">Mermaid mindmap（公司层/产品层/竞争层/生态层）</td></tr>
+        <tr><td style="padding:9px 14px;border-bottom:1px solid var(--line)"><b>⑭ 知识卡片</b></td><td style="padding:9px 14px;border-bottom:1px solid var(--line)">12 张（PBC 法律架构 / MCP 协议 / DeepSeek 价格战 / OpenAI vs Anthropic / AI Search 范式…）</td></tr>
+        <tr><td style="padding:9px 14px"><b>⑮ 复盘+下一步</b></td><td style="padding:9px 14px">全局复盘 prompt（9 问）+ 3 条下一步建议 + 45 文件清单</td></tr>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<div class="foot"><b>隆森AI · 全域蒸馏决策师</b> ｜ 全域蒸馏引擎 + 商业诊断引擎 + 方案转化引擎 </div>
+
+<!-- ============ 交付物详情框架 ============ -->
+<div class="mask" id="deliverMask" onclick="closeDeliverDetail()">
+  <div class="modal" style="max-width:640px;max-height:82vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <h4>📦 交付物 · 全域认知系统 · 详细信息</h4>
+    <div class="m-sub">输入行业/品牌/网站/话题 → 输出一套全域认知系统，交付物含内容框架、目录树、报告与数据底座</div>
+    <div id="deliverDetailBody" style="font-size:12.5px;line-height:1.8;color:var(--text2)">加载中…</div>
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" onclick="closeDeliverDetail();openKeyModal('petfood')">🔑 下载交付物数据包（Key 验证）</button>
+      <a class="btn sm" href="#" target="_blank" rel="noopener">📄 去 PDF 交付案例库看真实交付</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Key 弹窗 ============ -->
+<div class="mask" id="keyMask" onclick="closeKeyModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h4>🔑 输入下载 Key</h4>
+    <p class="m-sub">Key 格式：LSA-XXXX-XXXX-XXXX · 按档位发放，一客一 Key</p>
+    <input id="keyInput" placeholder="LSA-…" autocomplete="off" spellcheck="false">
+    <div class="m-msg" id="keyMsg"></div>
+    <div class="m-actions">
+      <button class="btn ghost sm" onclick="closeKeyModal()">取消</button>
+      <button class="btn sm" id="keyBtn" onclick="verifyAndDownload()">验证并下载</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 数据 ============ */
+var DEPTHS=[
+  {name:"Quick",tag:"快速摸底",desc:"Top 10-15 · 跑 Step 2+6",time:"约 5 分钟",steps:"Step 2 填数据库 + Step 6 知识地图（精简）",output:"精简认知：核心品牌 / 主要痛点 / 机会方向",fit:"初步了解 · 选题验证 · 快速判断值不值得深挖",detail:"快速了解行业轮廓，不展开竞品 12 维与内容生态。适合先摸个底、确认方向对不对，再决定要不要深挖。"},
+  {name:"Standard",tag:"默认推荐",desc:"Top 20-30 · Step 0-6 + 报告",time:"8-15 分钟",steps:"Step 0-6 全跑 + report.html 总报告",output:"完整认知系统：品牌库 / 竞品拆解 / 内容生态 / 机会清单 / 知识卡（40-120 md + 报告）",fit:"正式行业研究 · 决策支撑 · 方案前置",detail:"标准全流程：完整品牌库、竞品 12 维拆解、内容生态采样、机会清单，产出总报告。适合正式研究和做决策前的完整认知。"},
+  {name:"Deep",tag:"深度研究",desc:"Top 50-100 · 全跑 + 情报系统",time:"20-40 分钟",steps:"全跑 + Step 7 情报系统（持续监测）",output:"全量认知 + 情报监测体系（新增情报源/动态跟踪）",fit:"重投入决策 · 竞争激烈赛道 · 需情报持续跟踪",detail:"采样扩大数倍，覆盖间接竞品与长尾账号，并建立情报系统持续跟踪行业动态。适合重投入决策和需要长期情报支撑的场景。"}
+];
+var depthIdx=1;
+
+var PIPELINE=[
+  {n:"0",t:"初始化",d:"建 _INDEX + 匹配骨架",gate:false},
+  {n:"1",t:"建骨架",d:"目录树 + 空 md",gate:false},
+  {n:"2",t:"填数据库",d:"品牌17字段/关键词5文件",gate:false},
+  {n:"2.5",t:"URL 三关",d:"存活→多源→抽样",gate:false},
+  {n:"3",t:"竞品拆解",d:"12 维",gate:false},
+  {n:"5",t:"内容生态",d:"50-100 账号",gate:false},
+  {n:"6",t:"知识地图",d:"Mermaid + 4 类机会",gate:false},
+  {n:"⛔",t:"批准门",d:"HARD-GATE",gate:true},
+  {n:"✓",t:"交付",d:"report.html + 诊断 + 方案",gate:false}
+];
+
+var SKELETONS=[
+  {id:"dtc-ecommerce",kw:["宠物","pet","猫","狗","独立站","跨境电商","DTC","电商"],name:"dtc-ecommerce",desc:"DTC 独立站 · Competitors 为核心产出",fields:"AOV / LTV / CAC / 复购率 / checkout_platform / email_list_size",src:"SimilarWeb / BuiltWith / Owler / Meta Ad Library"},
+  {id:"ai-tools",kw:["AI","LLM","大模型","模型","Agent","智能体","人工智能","编程助手"],name:"ai-tools",desc:"AI/LLM/Agent · 知识卡最深（4-5级）",fields:"context_window / rate_limits / api_quality / open_source / training_data_origin",src:"Artificial Analysis / HuggingFace / arXiv / HN / GitHub"},
+  {id:"saas-b2b",kw:["SaaS","软件","B2B","企业服务","客户成功","CRM"],name:"saas-b2b",desc:"企业软件 · 定价页分析为核心",fields:"ARR / YoY / pricing_model / ICP / PLG 信号",src:"G2 / Capterra / Gartner / Crunchbase / ProductHunt"},
+  {id:"creator-economy",kw:["创作者","博主","自媒体","网红","MCN","达人"],name:"creator-economy",desc:"创作者经济 · Content 为核心产出",fields:"followers_total / engagement_rate / monetization_streams / mcn_signed",src:"Social Blade / 新榜 / 飞瓜 / The Information"},
+  {id:"consumer-goods",kw:["消费品","食品","美妆","服饰","日用","猫粮"],name:"consumer-goods",desc:"消费品 · 品牌三分法（DTC/传统/新锐）",fields:"ingredient_sourcing / certification / price_per_unit / sku_count",src:"Euromonitor / 尼尔森 / Amazon / 1688 / 小红书 / FDA"},
+  {id:"_generic",kw:[],name:"_generic",desc:"兜底骨架 · 标准全目录",fields:"15 品牌字段 + 11 产品字段 + 五意图关键词",src:"Google / Baidu / Wikipedia / Reddit / 知乎"}
+];
+
+/* ============ 交互 ============ */
+function pick(t){ document.getElementById("q").value=t; liveHint(); }
+function setDepth(i){
+  depthIdx=i;
+  for(var j=0;j<3;j++){document.getElementById("d"+j).classList.toggle("on",j===i);}
+  renderDepthDetail();
+  liveHint();
+}
+function renderDepthDetail(){
+  var dd=document.getElementById("depthDetail");
+  var d=DEPTHS[depthIdx];
+  dd.innerHTML=
+    "<b>"+d.name+" "+d.tag+"</b>："+d.detail+
+    "<br><span class='k'>⏱ 耗时</span>："+d.time+
+    " ｜ <span class='k'>执行</span>："+d.steps+
+    " ｜ <span class='k'>产出</span>："+d.output+
+    "<br><span class='k'>👤 适合</span>："+d.fit;
+}
+document.addEventListener("DOMContentLoaded",function(){
+  document.getElementById("q").addEventListener("input",liveHint);
+  renderDepthDetail();
+  liveHint();
+  renderFramework();
+});
+
+function liveHint(){
+  var q=document.getElementById("q").value.trim();
+  var el=document.getElementById("modeHint");
+  if(!q){ el.innerHTML="输入后自动识别：模式 · 行业骨架 · 执行档位"; return; }
+  var m=parseMode(q), s=pickSkeleton(q);
+  el.innerHTML="自动识别：模式 <b>"+m.name+"</b> · 行业骨架 <b>"+s.name+".md</b> · 档位 <b>"+DEPTHS[depthIdx].name+"</b>"+
+    " &nbsp;<span style='color:var(--dim)'>点击「开始蒸馏」执行</span>";
+}
+
+function parseMode(q){
+  q=q.trim();
+  if(/https?:\/\/|(^|\s)[a-z0-9-]+(\.[a-z0-9-]+)+/i.test(q)) return {mode:"website",name:"website · 网站",desc:"仅跑竞品拆解：导航/SEO 全量 + 收入推断"};
+  if(/行业|赛道|市场|产业|领域/.test(q)) return {mode:"industry",name:"industry · 行业",desc:"全跑：全球中英双搜 + 海外对标"};
+  if(/协议|算法|框架|技术|工具|方法|范式|概念/.test(q)) return {mode:"topic",name:"topic · 话题/技术词",desc:"精简：知识卡片+知识地图为核心"};
+  if(q.split(/[\s,，、\/]+/).filter(Boolean).length<=4) return {mode:"brand",name:"brand · 品牌",desc:"子集执行：品牌为圆心，竞品精简"};
+  return {mode:"industry",name:"industry · 行业",desc:"模糊偏大（industry）不偏小"};
+}
+
+function pickSkeleton(q){
+  for(var i=0;i<SKELETONS.length;i++){
+    var s=SKELETONS[i];
+    for(var j=0;j<s.kw.length;j++){ if(q.indexOf(s.kw[j])>-1) return s; }
+  }
+  return SKELETONS[SKELETONS.length-1];
+}
+
+/* ============ 蒸馏管道渲染 ============ */
+function renderPipe(){
+  var el=document.getElementById("pipeSteps");
+  el.innerHTML="";
+  PIPELINE.forEach(function(s,i){
+    var step=document.createElement("div");
+    step.className="pstep"+(s.gate?" gate":"");
+    step.id="st"+i;
+    step.innerHTML="<div class='pdot'>"+(s.gate?"⛔":s.n)+"</div><div class='pname'>"+s.t+"</div>";
+    el.appendChild(step);
+    if(i<PIPELINE.length-1){
+      var link=document.createElement("div");
+      link.className="plink"; link.id="lk"+i;
+      el.appendChild(link);
+    }
+  });
+}
+
+/* ============ 主流程 ============ */
+var stepTimer=[], approved=false;
+function start(){
+  stepTimer.forEach(clearTimeout); stepTimer=[];
+  var q=document.getElementById("q").value.trim();
+  if(!q){ alert("请输入行业/品牌/网站/话题"); return; }
+  document.getElementById("run").disabled=true;
+  approved=false;
+  document.getElementById("gate").style.display="flex";
+  var gs=document.getElementById("gateSt"); gs.className="st wait"; gs.textContent="待批准";
+  document.getElementById("planBox").classList.remove("show");
+  document.getElementById("outBox").classList.add("show");
+  document.getElementById("pipeEmpty").style.display="none";
+  document.getElementById("pipeSteps").style.display="flex";
+  document.getElementById("pipeStatus").innerHTML="管道启动 · 正在匹配骨架与模式…";
+
+  var mode=parseMode(q), skel=pickSkeleton(q);
+  document.getElementById("modeList").innerHTML="<li><b>"+mode.name+"</b></li><li><span>"+mode.desc+"</span></li>";
+  document.getElementById("skelList").innerHTML="<li><b>"+skel.name+".md</b><span>"+skel.desc+"</span></li><li><span>关键词表命中，无需落回兜底</span></li>";
+  document.getElementById("depthList").innerHTML="<li><b>"+DEPTHS[depthIdx].name+"</b><span>"+DEPTHS[depthIdx].desc+"</span></li>";
+
+  renderPipe();
+  var seq;
+  if(depthIdx===0){ seq=[0,2,6,7,8]; }
+  else if(depthIdx===2){ seq=[0,1,2,3,4,5,6,7,8]; }
+  else{ seq=[0,1,2,3,4,5,6,7,8]; }
+  var i=0;
+  (function tick(){
+    if(i<seq.length){
+      var cur=seq[i];
+      document.querySelectorAll(".pstep.run").forEach(function(e){e.classList.remove("run");});
+      document.querySelectorAll(".plink.hot").forEach(function(e){e.classList.remove("hot");});
+      var st=document.getElementById("st"+cur);
+      if(st) st.classList.add("run");
+      for(var k=0;k<cur;k++){ var lk=document.getElementById("lk"+k); if(lk) lk.classList.add("hot"); }
+      var ps=document.getElementById("pipeStatus");
+      if(PIPELINE[cur].gate){ ps.innerHTML="⛔ 抵达批准门 —— 蒸馏已完成，等待人工审批"; }
+      else if(PIPELINE[cur].n==="✓"){ ps.innerHTML="生成交付物…"; }
+      else{ ps.innerHTML="正在执行 <b>Step "+PIPELINE[cur].n+" "+PIPELINE[cur].t+"</b> · "+PIPELINE[cur].d; }
+      i++;
+      stepTimer.push(setTimeout(tick, 620));
+    }else{
+      document.querySelectorAll(".pstep").forEach(function(e){
+        e.classList.remove("run");
+        if(!e.classList.contains("gate")) e.classList.add("done");
+      });
+      document.querySelectorAll(".plink").forEach(function(e){e.classList.add("hot");});
+      document.getElementById("pipeStatus").innerHTML="蒸馏完成 · 生成交付物与诊断报告";
+      setTimeout(showOut,320);
+    }
+  })();
+}
+
+function showOut(){
+  var q=document.getElementById("q").value.trim();
+  var mode=parseMode(q), skel=pickSkeleton(q);
+  document.getElementById("fileCount").textContent=(depthIdx===2?"120":"44")+" md + 1 html";
+  document.getElementById("tree").innerHTML=treeFor(mode,skel);
+  renderRealData(q);
+  document.getElementById("diagList").innerHTML=
+    "<li><b>商业模式诊断</b><span>"+skel.desc+"</span></li>"+
+    "<li><b>收入倒推</b><span>目标月收入 ÷ 客单价 ÷ 转化率 → 渠道/流量</span></li>"+
+    "<li><b>可行性判定</b><span>"+(pickRisk(q).w?"⚠️ 调整后做（补合规/迭代预案）":"✅ 该做")+"</span></li>"+
+    "<li><b>风险清单</b><span>"+pickRisk(q).t+"</span></li>"+
+    "<li><b>证据优先</b><span>DIAGNOSIS.md 每条结论附数据行号</span></li>";
+  document.getElementById("urlList").innerHTML=
+    "<li><b>Phase 1 存活</b><span>200 OK · title 含关键词 · 非停放页</span></li>"+
+    "<li><b>Phase 2 多源交叉</b><span>≥2 独立来源指向同一 URL</span></li>"+
+    "<li><b>Phase 3 内容抽样</b><span>logo / 导航 / copyright 一致</span></li>"+
+    "<li><b>verified-urls.json</b><span>未通过 → 换关键词/Wayback/标记 unverified</span></li>";
+  document.getElementById("planList").innerHTML=
+    "<li><b>澄清</b><span>目的 / 约束 / 成功标准</span></li>"+
+    "<li><b>方案 A/B/C</b><span>按资源与风险取舍</span></li>"+
+    "<li><b>切入点</b><span>机会清单 4 类选 1-2</span></li>"+
+    "<li><b>里程碑</b><span>短中长期 + 验证指标</span></li>";
+  document.getElementById("specList").innerHTML=
+    "<li><b>架构</b><span>输入 → 处理 → 输出 全链路</span></li>"+
+    "<li><b>数据依赖</b><span>"+skel.fields+"</span></li>"+
+    "<li><b>数据源</b><span>"+skel.src+"</span></li>"+
+    "<li><b>批准门</b><span>设计定稿 → 批准 → 实施</span></li>";
+  document.getElementById("run").disabled=false;
+}
+
+function approve(){
+  if(approved) return; approved=true;
+  document.getElementById("gate").style.display="none";
+  var gs=document.getElementById("gateSt"); gs.className="st ok"; gs.textContent="已批准";
+  document.getElementById("planBox").classList.add("show");
+  document.getElementById("st7").classList.add("done");
+  document.getElementById("pipeStatus").innerHTML="✅ 已批准 · 交付包已解锁";
+}
+
+function pickRisk(q){
+  if(/食品|猫粮|药品|医疗|金融/.test(q)) return {w:true,t:"行业合规风险：资质/标准/监管需前置核查"};
+  if(/AI|大模型/.test(q)) return {w:true,t:"技术迭代风险：模型过时 / 幻觉 / 成本波动"};
+  return {w:false,t:"常规风险：供应链 / 获客成本 / 同质化竞争"};
+}
+
+function treeFor(mode,skel){
+  var slug="demo-"+(mode.mode==="website"?qToSlug(document.getElementById("q").value):"industry");
+  var L=[];
+  L.push("output/"+slug+"-OS/");
+  L.push("├── _INDEX.md · _MAP.md（Mermaid）· _REFLECTION.md");
+  L.push("├── report.html　<span class='cm'>(单文件 8 大区块 + Chart.js + 侧边栏)</span>");
+  if(mode.mode==="brand"||mode.mode==="industry"){
+    L.push("├── Brands/　<span class='cm'>(17字段 + 用户评价带来源 + gaps)</span>");
+    L.push("├── Products/ · TREE.md");
+  }
+  if(mode.mode==="website"){ L.push("├── Competitors/　<span class='cm'>(导航/Collection/Tag/SEO/工具栈/收入推断)</span>"); }
+  if(mode.mode==="topic"){
+    L.push("├── Knowledge-Cards/　<span class='cm'>(核心产出，4-5级深)</span>");
+    L.push("├── Keywords/　<span class='cm'>(5 意图文件)</span>");
+    L.push("└── Opportunities/　<span class='cm'>(4 类机会)</span>");
+  }else{
+    L.push("├── Keywords/　<span class='cm'>(Commercial/Info/Comparison/Review/Buying)</span>");
+    L.push("├── Pain-Points/ · Content-Sources/");
+    L.push("├── Competitors/　<span class='cm'>(_VERIFIED_URLS + _SYNTHESIS + 12 维)</span>");
+    L.push("├── Content/　<span class='cm'>(账号档案 + taxonomy + patterns)</span>");
+    L.push("├── Knowledge-Cards/ · Opportunities/　<span class='cm'>(蓝海/高增速/内容空白/Aha)</span>");
+    if(depthIdx===2) L.push("└── Sources/　<span class='cm'>(Deep 档情报系统)</span>");
+  }
+  return L.join("\n");
+}
+
+function qToSlug(q){ return q.replace(/[^\w\u4e00-\u9fa5]/g,"-").slice(0,12)||"demo"; }
+
+/* ============ 服务卡视图切换 ============ */
+function switchView(v){
+  var order=['demo','case','method','sample'];
+  order.forEach(function(k){
+    document.getElementById('view-'+k).classList.toggle('show', k===v);
+  });
+  document.querySelectorAll('.svc-card').forEach(function(c,i){
+    c.classList.toggle('on', i===order.indexOf(v));
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ============ URL 参数直达：?view=case → 行业案例库 ============ */
+(function(){
+  function readURL(){
+    var p = new URLSearchParams(window.location.search);
+    var v = p.get('view');
+    if(v && ['demo','case','method','sample'].indexOf(v)>=0){
+      switchView(v);
+      if(v==='case' && window.location.hash==='#yimeiCase'){
+        setTimeout(function(){
+          var el=document.getElementById('yimeiCase');
+          if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+        },150);
+      }
+    }
+  }
+  document.addEventListener('DOMContentLoaded', readURL);
+})();
+
+/* ============ 下载（演示） ============ */
+var keyTarget='report';
+function openKeyModal(target){
+  keyTarget=target||'report';
+  document.getElementById('keyInput').value='';
+  var m=document.getElementById('keyMsg'); m.className='m-msg'; m.textContent='';
+  document.getElementById('keyMask').classList.add('show');
+  document.getElementById('keyInput').focus();
+}
+function closeKeyModal(){
+  document.getElementById('keyMask').classList.remove('show');
+  document.getElementById('keyBtn').disabled=false;
+}
+function openDeliverDetail(){
+  document.getElementById('deliverMask').classList.add('show');
+  renderDeliverDetail();
+  renderFramework();
+}
+function closeDeliverDetail(){
+  document.getElementById('deliverMask').classList.remove('show');
+}
+/* 交付物信息内容框架（用户易读版，直接展示在交付物栏） */
+function renderFramework(){
+  var el=document.getElementById('dlFramework');
+  if(!el) return;
+  var mods=[
+    ['🧠 认知系统','品牌全景 · 竞品 12 维拆解 · 行业脉络 · 产品线 · 知识卡'],
+    ['🗂 数据底座','结构化数据 JSON，全字段带来源，机读可复用'],
+    ['🔍 诊断结论','值不值得做：商业模式 · 收入倒推 · 可行性判定 · 风险清单'],
+    ['🗺️ 行动方案','怎么做：方案 A/B/C + 推荐方案 + 预算范围（已批准）'],
+    ['📅 实施计划','怎么落地：阶段任务 · 决策门 · 里程碑 · 回退机制'],
+    ['📊 单文件总报告','report.html：8 大区块全量汇总，一份看懂整个行业']
+  ];
+  var html='';
+  mods.forEach(function(m){
+    html+='<div class="dlf"><b>'+m[0]+'</b><span>'+m[1]+'</span></div>';
+  });
+  html+='<div class="dlf" style="background:#ecfdf5"><b>🔑 数据包交付</b><span>4 份 PDF（全域蒸馏/诊断/行动方案/实施计划）+ 报告 + JSON，Key 验证下载</span></div>';
+  html+='<div class="dlf" style="background:#ecfdf5"><b>✅ 质量保证</b><span>URL 三关验证 · 数据全带来源 · 禁止编造 · 对外脱敏</span></div>';
+  el.innerHTML=html;
+}
+function renderDeliverDetail(){
+  var body=document.getElementById('deliverDetailBody');
+  var html='';
+  function h(t){return '<div style="font-size:13px;font-weight:800;color:#065f46;margin:12px 0 6px;border-left:3px solid #065f46;padding-left:8px">'+t+'</div>';}
+  function item(t){return '<div style="background:#f8fafc;border:1px solid #d1fae5;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:12px">'+t+'</div>';}
+  html+=h('🧱 交付物构成（内容框架）');
+  html+='<div style="font-family:var(--mono);font-size:11.5px;background:#f0fdf4;border:1px solid #d1fae5;border-radius:8px;padding:10px 12px;line-height:1.9">';
+  html+='全域认知系统/<br>&nbsp;&nbsp;├─ 01_认知/（品牌全景 · 竞品拆解 · 行业脉络 · 知识卡）<br>&nbsp;&nbsp;├─ 02_数据/（结构化 JSON · 全字段带来源）<br>&nbsp;&nbsp;├─ 03_诊断/（DIAGNOSIS：收入倒推 · 可行性 · 风险）<br>&nbsp;&nbsp;├─ 04_方案/（PLAN：方案 A/B/C · 推荐 · 预算范围）<br>&nbsp;&nbsp;├─ 05_实施/（IMPLEMENTATION：阶段任务 · 决策门 · 里程碑）<br>&nbsp;&nbsp;├─ report.html（单文件总报告，全量可读）<br>&nbsp;&nbsp;└─ verified-urls.json（URL 三关验证记录）';
+  html+='</div>';
+  html+=h('📦 数据包交付模式（真实交付）');
+  html+=item('📄 01 全域蒸馏报告 —— 行业认知系统（品牌/竞品/产品/关键词/痛点/机会/内容生态）');
+  html+=item('📄 02 诊断报告 —— 值不值得做（商业模式/收入倒推/可行性/风险清单）');
+  html+=item('📄 03 行动方案 —— 怎么做（方案 A/B/C + 推荐 + 预算范围）');
+  html+=item('📄 04 实施计划 —— 怎么落地（阶段任务/决策门/里程碑）');
+  html+=item('🗂 结构化数据底座 JSON（机读，全字段带来源）+ README');
+  html+=h('🧭 内容维度（输入什么 → 输出什么）');
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  ['品牌全景','竞品拆解 12 维','行业痛点','机会点','内容账号','关键词库','风险清单','知识卡','收入倒推','可行性判定','方案转化','实施排期'].forEach(function(x){ html+='<span style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:20px;padding:3px 10px;font-size:11px;color:#047857">'+x+'</span>'; });
+  html+='</div>';
+  html+=h('✅ 质量证明');
+  html+='<div style="font-size:12px;color:#047857;line-height:1.9">✔ URL 三关验证（可访问/内容匹配/来源标注）不验证不引用<br>✔ 数据 100% 带来源（白皮书/财报/战报/权威媒体），禁止编造<br>✔ 数据截止标注「YYYY-Qq」，抓不到即标缺<br>✔ 对外交付全脱敏（隐藏工具链与内部痕迹）</div>';
+  body.innerHTML=html;
+}
+function keyErrText(r){
+  var map={
+    invalid_key:'Key 无效或已失效',
+    ip_locked:'尝试次数过多，已锁定 '+Math.max(1,Math.ceil((r.retry_after||0)/60))+' 分钟',
+    key_locked:'该 Key 已被锁定，请稍后再试',
+    key_rate:'该 Key 下载过于频繁，请稍后再试',
+    ip_rate:'下载过于频繁，请稍后再试'
+  };
+  return map[r.code]||'验证失败（'+(r.code||'未知')+'）';
+}
+function verifyAndDownload(){
+  var key=document.getElementById('keyInput').value.trim();
+  var msg=document.getElementById('keyMsg');
+  var btn=document.getElementById('keyBtn');
+  if(!key){ msg.className='m-msg err'; msg.textContent='请输入 Key'; return; }
+  btn.disabled=true; msg.className='m-msg'; msg.textContent='验证中…';
+  fetch('/api/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:key})})
+  .then(function(res){ return res.json(); })
+  .then(function(r){
+    if(r.ok){ return doDownload(key); }
+    msg.className='m-msg err'; msg.textContent=keyErrText(r);
+    btn.disabled=false;
+  })
+  .catch(function(){ msg.className='m-msg err'; msg.textContent='网络错误，请重试'; btn.disabled=false; });
+}
+function doDownload(key){
+  var msg=document.getElementById('keyMsg');
+  var endpoint = (keyTarget==='petfood') ? '/download/petfood' : (keyTarget==='yimei') ? '/download/yimei' : '/download/report';
+  var payload = {key:key};
+  if(keyTarget!=='petfood'){
+    var q=document.getElementById('q').value.trim()||'示例行业';
+    var m=parseMode(q), s=pickSkeleton(q);
+    payload.q=q; payload.mode=m.mode; payload.skel=s.name; payload.depth=DEPTHS[depthIdx].name;
+  }
+  fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  .then(function(res){
+    if(res.ok) return res.blob();
+    return res.json().then(function(r){ throw r; });
+  })
+  .then(function(blob){
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=(keyTarget==='petfood')?'pet-food-data-pack.zip':(keyTarget==='yimei')?'yimei-operation-map.pdf':'global-distillation-report.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    msg.className='m-msg ok'; msg.textContent='✅ 验证通过，已开始下载';
+    document.getElementById('keyBtn').disabled=false;
+  })
+  .catch(function(r){
+    msg.className='m-msg err'; msg.textContent=keyErrText(r||{});
+    document.getElementById('keyBtn').disabled=false;
+  });
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape') closeKeyModal();
+  if(e.key==='Enter' && document.getElementById('keyMask').classList.contains('show') && !document.getElementById('keyBtn').disabled) verifyAndDownload();
+});
+
+/* ============ 真实蒸馏数据（pet-food-data.json 对接） ============ */
+function loadPetFood(){
+  fetch('/api/petfood').then(function(r){return r.json();}).then(function(d){
+    if(!d||!d.brands) return;
+    var s=d.summary||{};
+    var ms=(s.market_size&&s.market_size[0])||{}, fs=(s.food_share&&s.food_share[0])||{}, ds=(s.domestic_share&&s.domestic_share[0])||{};
+    var cells=[
+      [ms.value||'—', ms.item||'市场规模', ''],
+      [fs.value||'—', fs.item||'食品占消费比', ''],
+      [ds.value||'—', ds.item||'国产份额', ''],
+      [d.brands.length+' 家','品牌库', ''],
+      [d.competitors.length+' 家','竞品 12 维拆解', ''],
+      [d.opportunities.length+' 条','机会清单', ''],
+      [d.content_creators.length+' 个','内容账号采样', ''],
+      [d.pain_points.length+' 条','用户痛点（带证据）', '']
+    ];
+    document.getElementById('rcGrid').innerHTML=cells.map(function(c){
+      return '<div class="rc-cell"><b>'+c[0]+'</b><span>'+c[1]+'</span>'+(c[2]?'<span style="color:var(--dim)">'+c[2]+'</span>':'')+'</div>';
+    }).join('');
+    document.getElementById('rcTags').innerHTML=d.brands.map(function(b){return '<span class="rc-tag">'+b.name+'</span>';}).join('');
+    var html='';
+    html+='<div class="rc-item"><b>🏢 竞品拆解</b><span>'+d.competitors.map(function(c){return c.name+'（'+one(c.position)+'）';}).join(' · ')+'</span></div>';
+    html+='<div class="rc-item"><b>💡 机会 TOP5</b><span>'+d.opportunities.slice(0,5).map(function(o){return o.title;}).join(' / ')+'</span></div>';
+    html+='<div class="rc-item"><b>⚠️ 核心风险</b><span>'+(d.risks||[]).slice(0,3).map(function(r){return r.risk;}).join(' / ')+'</span></div>';
+    html+='<div class="rc-item"><b>🎯 建议</b><span>'+(d.recommendation||'')+'</span></div>';
+    document.getElementById('rcList').innerHTML=html;
+  }).catch(function(){});
+}
+function one(x){ return x&&x.length>18 ? x.slice(0,18)+'…' : (x||''); }
+function renderRealData(q){
+  var rd=document.getElementById('realData');
+  if(!/宠物|猫粮|狗粮|pet|猫|狗/.test(q)){ rd.style.display='none'; return; }
+  rd.style.display='block';
+  rd.innerHTML='<div class="rc-head">🐱 已接入真实蒸馏数据（宠物食品）<span class="st ok">正式数据</span></div><div class="rc-sub">加载中…</div>';
+  fetch('/api/petfood').then(function(r){return r.json();}).then(function(d){
+    if(!d||!d.brands) return;
+    var s=d.summary||{};
+    var finds=(s.core_conclusions||[]).slice(0,3).map(function(c){return c.conclusion;});
+    rd.innerHTML='<div class="rc-head">🐱 已接入真实蒸馏数据（宠物食品）<span class="st ok">正式数据</span></div>'+
+      '<div class="rc-sub">'+(finds.length?finds.map(function(f){return '· '+f;}).join('<br>'):(s.conclusions||[]).slice(0,3).join('<br>'))+'</div>'+
+      '<div class="rc-tags">'+d.brands.slice(0,13).map(function(b){return '<span class="rc-tag">'+b.name+'</span>';}).join('')+'</div>'+
+      '<div class="rc-list">'+
+      '<div class="rc-item"><b>💡 机会 TOP5</b><span>'+d.opportunities.slice(0,5).map(function(o){return o.title;}).join(' / ')+'</span></div>'+
+      '<div class="rc-item"><b>🎯 建议</b><span>'+(d.recommendation||'')+'</span></div>'+
+      '</div>';
+  }).catch(function(){ rd.innerHTML='<div class="rc-head">真实数据加载失败</div>'; });
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',loadPetFood);
+}else{ loadPetFood(); }
+</script>
+</body>
+</html>
