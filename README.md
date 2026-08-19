@@ -40,6 +40,12 @@
 
 > 完整方法论见 [METHOD.md](METHOD.md)，案例详情见 [CASE-STUDY.md](CASE-STUDY.md)。
 
+## Live Demo
+
+在线体验（GitHub Pages）：**https://longsen-hub.github.io/longsen-distiller/**
+
+交互演示：输入一个行业 / 品牌 / 网站 / 话题 → 自动判定模式 → 7 步流水线 → 交付物框架展示。
+
 ## Quick Start
 
 本项目为**纯静态演示**（零依赖，无后端）：
